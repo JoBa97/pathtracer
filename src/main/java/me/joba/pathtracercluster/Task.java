@@ -16,7 +16,7 @@ public class Task implements Comparable<Task> {
     private final Scene scene;
     private final Plotter plotter;
     private final double minX, maxX;
-    private final double minZ, maxZ;
+    private final double minY, maxY;
     private final int rayCount;
     private final int priority; //Higher value <=> Higher priority
     private final UUID serverId;
@@ -24,16 +24,16 @@ public class Task implements Comparable<Task> {
     private AtomicInteger count = new AtomicInteger(1);
     
     public Task(Scene scene, Plotter plotter, UUID serverId, NetworkListener networkListener, PacketServer02SendTask packet) {
-        this(scene, plotter, serverId, networkListener, packet.getMinX(), packet.getMaxX(), packet.getMinZ(), packet.getMaxZ(), packet.getRayCount(), packet.getPriority());
+        this(scene, plotter, serverId, networkListener, packet.getMinX(), packet.getMaxX(), packet.getMinY(), packet.getMaxY(), packet.getRayCount(), packet.getPriority());
     }
     
-    private Task(Scene scene, Plotter plotter, UUID serverId, NetworkListener networkListener, double minX, double maxX, double minZ, double maxZ, int rayCount, int priority) {
+    private Task(Scene scene, Plotter plotter, UUID serverId, NetworkListener networkListener, double minX, double maxX, double minY, double maxY, int rayCount, int priority) {
         this.scene = scene;
         this.plotter = plotter;
         this.minX = minX;
         this.maxX = maxX;
-        this.minZ = minZ;
-        this.maxZ = maxZ;
+        this.minY = minY;
+        this.maxY = maxY;
         this.rayCount = rayCount;
         this.priority = priority;
         this.serverId = serverId;
@@ -56,12 +56,12 @@ public class Task implements Comparable<Task> {
         return maxX;
     }
 
-    public double getMinZ() {
-        return minZ;
+    public double getMinY() {
+        return minY;
     }
 
-    public double getMaxZ() {
-        return maxZ;
+    public double getMaxY() {
+        return maxY;
     }
 
     public int getRayCount() {
@@ -74,7 +74,7 @@ public class Task implements Comparable<Task> {
 
     public void signalDone() {
         if(count.decrementAndGet() == 0) {
-            networkListener.sendUpdate(this);
+            networkListener.sendCompletion(this);
         }
     }
 
@@ -88,10 +88,10 @@ public class Task implements Comparable<Task> {
         int raysPerShard = rayCount / shards;
         AtomicInteger count = new AtomicInteger(shards);
         for (int i = 0; i < shards - 1; i++) {
-            tasks[i] = new Task(scene, plotter, serverId, networkListener, minX, maxX, minZ, maxZ, raysPerShard, priority);
+            tasks[i] = new Task(scene, plotter, serverId, networkListener, minX, maxX, minY, maxY, raysPerShard, priority);
             tasks[i].count = count;
         }
-        tasks[shards - 1] = new Task(scene, plotter, serverId, networkListener, minX, maxX, minZ, maxZ, rayCount - raysPerShard * (shards - 1), priority);
+        tasks[shards - 1] = new Task(scene, plotter, serverId, networkListener, minX, maxX, minY, maxY, rayCount - raysPerShard * (shards - 1), priority);
         tasks[shards - 1].count = count;
         return tasks;
     }

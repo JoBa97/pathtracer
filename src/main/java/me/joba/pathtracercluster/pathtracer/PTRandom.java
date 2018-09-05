@@ -1,20 +1,16 @@
 package me.joba.pathtracercluster.pathtracer;
 
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  *
  * @author balsfull
  */
 public class PTRandom {
-    private static ThreadLocal<Random> rand = ThreadLocal.withInitial(() -> new Random());;
-    
-    public static void setSeed(long seed) {
-        rand = ThreadLocal.withInitial(() -> new Random(seed));
-    }
     
     public static Random getRand() {
-        return rand.get();
+        return ThreadLocalRandom.current();
     }
     
     public static double getUnit() {

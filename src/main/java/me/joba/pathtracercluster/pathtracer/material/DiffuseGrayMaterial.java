@@ -17,6 +17,10 @@ public class DiffuseGrayMaterial implements Material {
         if(grayScale < 0 || grayScale > 1) throw new AssertionError("GrayScale outside of range [0,1]. Found: " + grayScale);
         this.grayScale = grayScale;
     }
+
+    public double getGrayScale() {
+        return grayScale;
+    }
     
     @Override
     public Ray getNextRay(Ray incoming, Intersection intersection) {

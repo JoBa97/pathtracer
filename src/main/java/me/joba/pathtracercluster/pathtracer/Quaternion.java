@@ -7,14 +7,14 @@ package me.joba.pathtracercluster.pathtracer;
 public class Quaternion {
     
     public final double x, y, z, w;
-
+    
     public Quaternion(double x, double y, double z, double w) {
         this.x = x;
         this.y = y;
         this.z = z;
         this.w = w;
     }
-    
+
     public static Quaternion rotation(double x, double y, double z, double angle) {
         return new Quaternion(
                 Math.sin(angle * 0.5) * x,

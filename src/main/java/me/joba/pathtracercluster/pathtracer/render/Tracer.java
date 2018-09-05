@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import me.joba.pathtracercluster.pathtracer.Camera;
 import me.joba.pathtracercluster.pathtracer.Element;
 import me.joba.pathtracercluster.pathtracer.Intersection;
@@ -24,9 +25,11 @@ public class Tracer {
     }
     
     private final ArrayList<Photon> photons;
+    private AtomicInteger rayCount = new AtomicInteger(0);
+    
     
     public Tracer() {
-        this.photons = new ArrayList<>(10000);
+        this.photons = new ArrayList<>();
     }
     
     public List<Photon> getPhotons() {
@@ -65,18 +68,28 @@ public class Tracer {
     }
     
     public void render(Scene scene, int photonCount) {
+        render(scene, -1, 1, -1, 1, photonCount);
+    }
+    
+    public void render(Scene scene, double minX, double maxX, double minY, double maxY, int photonCount) {
+        rayCount.set(0);
         photons.clear();
         photons.ensureCapacity(photonCount);
         for (int i = 0; i < photonCount; i++) {
             double wavelength = PTRandom.getWavelength();
-            double x = PTRandom.getBiUnit();
-            double y = PTRandom.getBiUnit();
+            double x = PTRandom.getUnit() * (maxX - minX) + minX;
+            double y = PTRandom.getUnit() * (maxY - minY) + minY;
             Photon photon = new Photon();
             photon.wavelength = wavelength;
             photon.x = x;
             photon.y = y;
             photon.probability = renderCameraRay(scene, x, y, wavelength);
             photons.add(photon);
+            rayCount.incrementAndGet();
         }
+    }
+
+    public int getCurrentRayCount() {
+        return rayCount.intValue();
     }
 }

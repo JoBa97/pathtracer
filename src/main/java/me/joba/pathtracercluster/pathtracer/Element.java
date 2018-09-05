@@ -13,7 +13,7 @@ public class Element {
     private final Surface surface;
     private final Material material;
     private final Radiator radiator;
-    
+
     public Element(Surface surface, Material material) {
         this.surface = surface;
         this.material = material;

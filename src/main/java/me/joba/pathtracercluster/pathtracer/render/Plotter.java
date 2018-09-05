@@ -1,5 +1,6 @@
 package me.joba.pathtracercluster.pathtracer.render;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -13,18 +14,33 @@ import me.joba.pathtracercluster.pathtracer.render.Tracer.Photon;
 public class Plotter {
     
     private final int width, height;
+//    private final double minX, maxX, minY, maxY;
     private final double aspectRatio;
     private final Vector3[] buffer;
     private final Lock lock = new ReentrantLock();
     
-    public Plotter(int width, int height) {
-        this.width = width;
-        this.height = height;
+    public Plotter(int width, int height/*, double minX, double maxX, double minY, double maxY*/) {
+        this.width = width;//(int)Math.ceil(width * (maxX - minX) / 2.0);
+        this.height = height;//(int)Math.ceil(height * (maxY - minY) / 2.0);
+//        this.minX = minX;
+//        this.maxX = maxX;
+//        this.minY = minY;
+//        this.maxY = maxY;
         this.aspectRatio = (double)width / (double)height;
         this.buffer = new Vector3[width * height];
-        for (int i = 0; i < buffer.length; i++) {
-            buffer[i] = new Vector3(0, 0, 0);
-        }
+        Arrays.fill(buffer, new Vector3(0, 0, 0));
+    }
+//    
+//    public Plotter(int width, int height) {
+//        this(width, height, -1, 1, -1, 1);
+//    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
     }
 
     public Vector3[] getCIEVector() {
@@ -36,7 +52,25 @@ public class Plotter {
         }
     }
     
+    public void addCIEVector(Vector3[] cieVector) {
+        addCIEVector(cieVector, 0);
+    }
+    
+    public void addCIEVector(Vector3[] cieVector, int offset) {
+        lock.lock();
+        try {
+            for (int i = 0; i < cieVector.length; i++) {
+                buffer[i + offset] = buffer[i + offset].add(cieVector[i]);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+    
     private void plotPixel(double x, double y, Vector3 cie) {
+        //Rescale X/Y
+//        x = x * (2.0 / (maxX - minX)) - minX - 1;
+//        y = y * (2.0 / (maxY - minY)) - minY - 1;
         double px = (x * 0.5 + 0.5) * (width - 1);
         double py = (y * aspectRatio * 0.5 + 0.5) * (height - 1);
         int px1 = Math.max(0, Math.min(width - 1, (int)Math.floor(px)));

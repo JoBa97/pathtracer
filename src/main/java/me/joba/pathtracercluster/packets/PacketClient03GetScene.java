@@ -8,7 +8,11 @@ import java.util.UUID;
  */
 public class PacketClient03GetScene {
 
-    private final UUID sceneId;
+    private UUID sceneId;
+    
+    public PacketClient03GetScene() {
+        
+    }
     
     public PacketClient03GetScene(UUID sceneId) {
         this.sceneId = sceneId;

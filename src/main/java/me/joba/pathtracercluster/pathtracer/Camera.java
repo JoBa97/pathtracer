@@ -6,10 +6,10 @@ package me.joba.pathtracercluster.pathtracer;
  */
 public class Camera {
     
-    private Vector3 position;
-    private double fieldOfView, focalDistance, depthOfField, chromaticAberration;
-    private Quaternion orientation;
-
+    private final Vector3 position;
+    private final double fieldOfView, focalDistance, depthOfField, chromaticAberration;
+    private final Quaternion orientation;
+    
     public Camera(Vector3 position, Quaternion orientation, double fieldOfView, double focalDistance, double depthOfField, double chromaticAberration) {
         this.position = position;
         this.fieldOfView = fieldOfView;
@@ -18,6 +18,31 @@ public class Camera {
         this.chromaticAberration = chromaticAberration;
         this.orientation = orientation;
     }
+
+    public Vector3 getPosition() {
+        return position;
+    }
+
+    public double getFieldOfView() {
+        return fieldOfView;
+    }
+
+    public double getFocalDistance() {
+        return focalDistance;
+    }
+
+    public double getDepthOfField() {
+        return depthOfField;
+    }
+
+    public double getChromaticAberration() {
+        return chromaticAberration;
+    }
+
+    public Quaternion getOrientation() {
+        return orientation;
+    }
+    
     
     private Ray getScreenRay(double x, double y, double chromaFactor, double dofAngle, double dofRadius) {
         double screenDistance = 1 / Math.tan(fieldOfView * 0.5);

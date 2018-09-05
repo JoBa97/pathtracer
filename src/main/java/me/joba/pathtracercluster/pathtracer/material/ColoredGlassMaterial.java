@@ -10,10 +10,18 @@ import me.joba.pathtracercluster.pathtracer.Ray;
 public class ColoredGlassMaterial extends GlassMaterial {
     
     private final double wavelength, deviation;
-
+    
     public ColoredGlassMaterial(double wavelength, double deviation) {
         this.wavelength = wavelength;
         this.deviation = deviation;
+    }
+
+    public double getWavelength() {
+        return wavelength;
+    }
+
+    public double getDeviation() {
+        return deviation;
     }
     
     @Override

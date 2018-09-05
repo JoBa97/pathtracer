@@ -10,11 +10,19 @@ import me.joba.pathtracercluster.pathtracer.Ray;
 public class DiffuseColoredMaterial extends DiffuseGrayMaterial {
 
     private final double wavelength, deviation;
-
+    
     public DiffuseColoredMaterial(double grayscale, double wavelength, double deviation) {
         super(grayscale);
         this.wavelength = wavelength;
         this.deviation = deviation;
+    }
+
+    public double getWavelength() {
+        return wavelength;
+    }
+
+    public double getDeviation() {
+        return deviation;
     }
     
     @Override

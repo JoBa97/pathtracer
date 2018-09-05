@@ -1,7 +1,31 @@
 package me.joba.pathtracercluster.server;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import com.martiansoftware.jsap.FlaggedOption;
+import com.martiansoftware.jsap.JSAP;
 import com.martiansoftware.jsap.JSAPException;
+import com.martiansoftware.jsap.JSAPResult;
+import com.martiansoftware.jsap.Parameter;
+import com.martiansoftware.jsap.SimpleJSAP;
+import com.martiansoftware.jsap.Switch;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import me.joba.pathtracercluster.NetworkRegistration;
 import me.joba.pathtracercluster.pathtracer.Camera;
 import me.joba.pathtracercluster.pathtracer.Element;
 import me.joba.pathtracercluster.pathtracer.Quaternion;
@@ -14,8 +38,13 @@ import me.joba.pathtracercluster.pathtracer.material.DiffuseGrayMaterial;
 import me.joba.pathtracercluster.pathtracer.material.GlossyMaterial;
 import me.joba.pathtracercluster.pathtracer.material.Material;
 import me.joba.pathtracercluster.pathtracer.material.Radiator;
+import me.joba.pathtracercluster.pathtracer.render.Plotter;
 import me.joba.pathtracercluster.pathtracer.surface.Plane;
 import me.joba.pathtracercluster.pathtracer.surface.Sphere;
+import me.joba.pathtracercluster.serializers.ArraySerializer;
+import me.joba.pathtracercluster.serializers.InetAddressSerializer;
+import me.joba.pathtracercluster.serializers.PlotterSerializer;
+import me.joba.pathtracercluster.serializers.ServerStateSerializer;
 
 /**
  *
@@ -23,30 +52,142 @@ import me.joba.pathtracercluster.pathtracer.surface.Sphere;
  */
 public class ServerMain {
     
-    public static UUID serverId;
+    public static ServerState state;
     
-    public static void main(String[] args) throws JSAPException {
-//        SimpleJSAP jsap = new SimpleJSAP(
-//                "PathTracer",
-//                "Realistic rendering",
-//                new Parameter[]{
-//                    new FlaggedOption("port", JSAP.INTEGER_PARSER, "1-65535", JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "port", "TCP Port"),
-//                    new FlaggedOption("height", JSAP.INTEGER_PARSER, "512", JSAP.REQUIRED, 'h', "height", "Image height"),
-//                    new FlaggedOption("width", JSAP.INTEGER_PARSER, "512", JSAP.REQUIRED, 'w', "width", "Image width"),
-//                    new FlaggedOption("scene", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "scene", "Scene file location"),
-//                    new FlaggedOption("servers", JSAP.INETADDRESS_PARSER, JSAP.NO_DEFAULT, JSAP.REQUIRED, JSAP.NO_SHORTFLAG, "servers", "Rendering servers"),
-//                    new FlaggedOption("continue", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "continue", "Continue execution")
-//                }
-//        );
-//        JSAPResult config = jsap.parse(args);
-//        if (!config.success()) {
-//            System.err.println("                " + jsap.getUsage());
-//            System.exit(1);
-//        }
-//        serverId = UUID.randomUUID();
-        Scene scene = new Scene(512, 512);
-        populateScene(scene);
-        scene.setCamera(createCamera());
+    public static void main(String[] args) throws JSAPException, IOException, InterruptedException {
+        Kryo kryo = new Kryo();
+        NetworkRegistration.registerKryo(kryo);
+        kryo.register(ServerState.class);
+        kryo.register(InetAddress.class, new InetAddressSerializer());
+        kryo.register(Inet4Address.class, new InetAddressSerializer());
+        kryo.register(Inet6Address.class, new InetAddressSerializer());
+        kryo.register(InetAddress[].class, new ArraySerializer<>(InetAddress.class));
+        kryo.register(Inet4Address[].class, new ArraySerializer<>(Inet4Address.class));
+        kryo.register(Inet6Address[].class, new ArraySerializer<>(Inet6Address.class));
+        kryo.register(Plotter.class, new PlotterSerializer());
+        kryo.register(ServerState.class, new ServerStateSerializer());
+        
+        SimpleJSAP jsap = new SimpleJSAP(
+                "PathTracer",
+                "Realistic rendering",
+                new Parameter[]{
+                    new FlaggedOption("height", JSAP.INTEGER_PARSER, "512", JSAP.NOT_REQUIRED, 'h', "height", "Image height"),
+                    new FlaggedOption("width", JSAP.INTEGER_PARSER, "512", JSAP.NOT_REQUIRED, 'w', "width", "Image width"),
+                    new FlaggedOption("scene", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "scene", "Scene file location"),
+                    new FlaggedOption("servers", JSAP.INETADDRESS_PARSER, JSAP.NO_DEFAULT, JSAP.REQUIRED, JSAP.NO_SHORTFLAG, "servers", "Rendering servers"),
+                    new FlaggedOption("autosave", JSAP.INTEGER_PARSER, "-1", JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "autosave", "Autosave period"),
+                    new FlaggedOption("writeImage", JSAP.INTEGER_PARSER, "-1", JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "writeImage", "Rendering period"),
+                    new Switch("server", JSAP.NO_SHORTFLAG, "server", "Start Process as a master node"),
+                    new Switch("continue", JSAP.NO_SHORTFLAG, "continue", "Continue execution")
+                }
+        );
+        JSAPResult config = jsap.parse(args);
+        if (!config.success()) {
+            System.err.println("                " + jsap.getUsage());
+            System.exit(1);
+        }
+        state = new ServerState();
+        if(config.userSpecified("continue")) {
+            try {
+                File file = new File("pathtracer.continue");
+                if(!file.exists()) {
+                    System.err.println("Continue file not found!");
+                    System.exit(1);
+                }   
+                Input input = new Input(new FileInputStream(file));
+                state = kryo.readObject(input, ServerState.class);
+                input.close();
+            } catch (Exception ex) {
+                Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+                System.err.println("Could not resume operation!");
+                System.exit(1);
+            }
+        }
+        else {
+            state = new ServerState();
+            state.height = config.getInt("height");
+            state.width = config.getInt("width");
+            state.autosave = config.getInt("autosave");
+            state.writeImage = config.getInt("writeImage");
+            state.servers = config.getInetAddressArray("servers");
+            if(!config.contains("scene")) {
+                state.scene = new Scene(state.width, state.height);
+                populateScene(state.scene);
+                state.scene.setCamera(createCamera());
+            }
+            else {
+                try {
+                    File file = new File("pathtracer.scene");
+                    if(!file.exists()) {
+                        System.err.println("Scene file not found!");
+                        System.exit(1);
+                    }   
+                    Input input = new Input(new FileInputStream(file));
+                    state.scene = kryo.readObject(input, Scene.class);
+                    input.close();
+                } catch (Exception ex) {
+                    Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+                    System.err.println("Could not resume operation!");
+                    System.exit(1);
+                }
+            }
+            state.sceneId = UUID.randomUUID();
+            state.imageState = new Plotter(state.width, state.height);
+            state.serverId = UUID.randomUUID();
+        }
+        System.out.println("Starting Server with:");
+        System.out.println("ServerID: " + state.serverId);
+        System.out.println("Servers: " + Arrays.toString(state.servers));
+        System.out.println("SceneID: " + state.sceneId);
+        
+        TaskScheduler scheduler = new TaskScheduler(state.sceneId, state.width, state.height, 20000);
+        NetworkListener network = new NetworkListener(state.scene, state.serverId, state.sceneId, scheduler, state.servers);
+        Lock lock = new ReentrantLock();
+        Thread saveThread = new Thread(() -> {
+            while(true) {
+                try {
+                    lock.lock();
+                    try {
+                        save(kryo);
+                    } finally {
+                        lock.unlock();
+                    }
+                    Thread.sleep(state.autosave);
+                } catch (FileNotFoundException ex) {
+                    Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (IOException ex) {
+                    Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
+        if(state.autosave > 0) {
+            saveThread.start();
+        }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                System.out.println("Shutting down...");
+                scheduler.shutdown();
+                lock.lock();
+                save(kryo);
+            } catch (IOException ex) {
+                Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }));
+        scheduler.start();
+    }
+    
+    private static void save(Kryo kryo) throws FileNotFoundException, IOException {
+        File saveFile = new File("pathtracer.continue");
+        File saveFileTmp = new File("pathtracer.continue.tmp");
+        Output output = new Output(new FileOutputStream(saveFileTmp));
+        kryo.writeObject(output, state);
+        output.close();
+        if(saveFile.exists()) {
+            saveFile.delete();
+        }
+        Files.move(saveFileTmp.toPath(), saveFile.toPath());
     }
     
     public static Camera createCamera() {
@@ -76,7 +217,7 @@ public class ServerMain {
         Material diffuseFloor = new DiffuseGrayMaterial(0.8);
         Material mirror = new GlossyMaterial(new DiffuseGrayMaterial(1), 0);
         Material glossy = new GlossyMaterial(new DiffuseGrayMaterial(1), 0.8);
-        
+                
         scene.addElement(new Element(top, mirror));
         scene.addElement(new Element(bottom, diffuseFloor));
         scene.addElement(new Element(front, color3));

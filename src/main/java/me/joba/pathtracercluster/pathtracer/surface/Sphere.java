@@ -18,6 +18,14 @@ public class Sphere implements Surface, Volume {
         this.position = offset;
         this.radiusSquared = radius * radius;
     }
+
+    public Vector3 getPosition() {
+        return position;
+    }
+
+    public double getRadiusSquared() {
+        return radiusSquared;
+    }
     
     @Override
     public Optional<Intersection> intersect(Ray ray) {

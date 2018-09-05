@@ -9,8 +9,12 @@ import me.joba.pathtracercluster.pathtracer.Scene;
  */
 public class PacketServer04SendScene {
     
-    private final UUID sceneId;
-    private final Scene scene;
+    private UUID sceneId;
+    private Scene scene;
+    
+    public PacketServer04SendScene() {
+        
+    }
 
     public PacketServer04SendScene(UUID sceneId, Scene scene) {
         this.sceneId = sceneId;

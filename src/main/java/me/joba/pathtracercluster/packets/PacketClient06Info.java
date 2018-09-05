@@ -6,10 +6,20 @@ package me.joba.pathtracercluster.packets;
  */
 public class PacketClient06Info {
     
-    private final int queueSize;
-
-    public PacketClient06Info(int queueSize) {
+    private int queueSize;
+    private int totalRayCount;
+    
+    public PacketClient06Info() {
+        
+    }
+    
+    public PacketClient06Info(int queueSize, int totalRayCount) {
         this.queueSize = queueSize;
+        this.totalRayCount = totalRayCount;
+    }
+
+    public int getTotalRayCount() {
+        return totalRayCount;
     }
 
     public int getQueueSize() {

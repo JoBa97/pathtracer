@@ -12,10 +12,18 @@ import me.joba.pathtracercluster.pathtracer.Vector3;
 public class Plane implements Surface{
 
     private final Vector3 normal, offset;
-
+    
     public Plane(Vector3 offset, Vector3 normal) {
         this.normal = normal;
         this.offset = offset;
+    }
+
+    public Vector3 getNormal() {
+        return normal;
+    }
+
+    public Vector3 getOffset() {
+        return offset;
     }
     
     @Override

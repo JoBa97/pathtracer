@@ -1,10 +1,12 @@
 package me.joba.pathtracercluster.pathtracer;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.PriorityBlockingQueue;
 import me.joba.pathtracercluster.Task;
+import me.joba.pathtracercluster.pathtracer.RenderThread.RenderState;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -30,7 +32,19 @@ public class PathTracer {
         threads = new RenderThread[threadCount];
         for (int i = 0; i < threadCount; i++) {
             threads[i] = new RenderThread(taskQueue);
+            threads[i].setName("RenderThread #" + i);
         }
+    }
+    
+    public int getQueueSize() {
+        int size = taskQueue.size();
+        if(size == 0) {
+            return -(int)Arrays
+                    .stream(threads)
+                    .filter(rt -> rt.getRenderState() == RenderState.IDLE)
+                    .count();
+        }
+        return size;
     }
     
     public void registerScene(UUID uuid, Scene scene) {
@@ -46,8 +60,7 @@ public class PathTracer {
             taskQueue.add(task);
             return;
         }
-        int cpus = Runtime.getRuntime().availableProcessors();
-        int shardCount = Math.min(cpus, task.getRayCount() / minRayCount);
+        int shardCount = Math.max(1, Math.min(threads.length, task.getRayCount() / minRayCount));
         if(shardCount == 1) {
             taskQueue.add(task);
             return;
@@ -73,21 +86,31 @@ public class PathTracer {
         }
     }
     
-//    public static void render(Scene scene) throws Exception {
-//        Runtime.getRuntime().addShutdownHook(new Thread() {
-//            @Override
-//            public void start() {
-//                try {
-//                    ToneMapper mapper = new ToneMapper(WIDTH, HEIGHT);
-//                    mapper.tonemap(plotter.getCIEVector());
-//                    int[] rgb = mapper.getRGB();
-//                    BufferedImage bi = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
-//                    bi.setRGB(0, 0, WIDTH, HEIGHT, rgb, 0, WIDTH);
-//                    ImageIO.write(bi, "png", new File("rendered.png"));
-//                } catch (IOException ex) {
-//                    Logger.getLogger(PathTracer.class.getName()).log(Level.SEVERE, null, ex);
-//                }
-//            }
-//        });
-//    }
+    public void printStats() {
+        int blocks = 20;
+        System.out.println("[======== INFO ========]");
+        System.out.println("Queue size: " + taskQueue.size());
+        for (int i = 0; i < threads.length; i++) {
+            RenderState state = threads[i].getRenderState();
+            System.out.print(threads[i].getName() + ": ");
+            if(state == RenderState.TRACING) {
+                int cRays = threads[i].getCurrentRayCount();
+                int tRays = threads[i].getTotalRayCount();
+                float percentage = (float)cRays / (float)tRays;
+                int filledBlocks = (int)Math.floor(percentage * blocks);
+                char[] bar = new char[blocks];
+                Arrays.fill(bar, 0, filledBlocks, '#');
+                Arrays.fill(bar, filledBlocks, blocks, ' ');
+                System.out.print("[" + new String(bar) + "] " + (int)Math.floor(percentage * 100) + "%");
+                System.out.print("(" + cRays + "/" + tRays + ")");
+            }
+            else if(state == RenderState.PLOTTING) {
+                System.out.print("Plotting...");
+            }
+            else if(state == RenderState.IDLE) {
+                System.out.print("Idle");
+            }
+            System.out.println();
+        }
+    }
 }

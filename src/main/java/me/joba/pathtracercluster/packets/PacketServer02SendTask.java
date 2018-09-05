@@ -10,10 +10,14 @@ public class PacketServer02SendTask {
     
     private UUID sceneId;
     private double minX = -1, maxX = 1;
-    private double minZ = -1, maxZ = 1;
+    private double minY = -1, maxY = 1;
     private int rayCount = 1000;
     private int priority = 0; //Higher value <=> Higher priority
-
+    
+    public PacketServer02SendTask() {
+        
+    }
+    
     public PacketServer02SendTask(UUID sceneId) {
         this.sceneId = sceneId;
     }
@@ -30,12 +34,12 @@ public class PacketServer02SendTask {
         this.maxX = maxX;
     }
 
-    public void setMinZ(double minZ) {
-        this.minZ = minZ;
+    public void setMinY(double minZ) {
+        this.minY = minZ;
     }
 
-    public void setMaxZ(double maxZ) {
-        this.maxZ = maxZ;
+    public void setMaxY(double maxZ) {
+        this.maxY = maxZ;
     }
 
     public void setRayCount(int rayCount) {
@@ -58,12 +62,12 @@ public class PacketServer02SendTask {
         return maxX;
     }
 
-    public double getMinZ() {
-        return minZ;
+    public double getMinY() {
+        return minY;
     }
 
-    public double getMaxZ() {
-        return maxZ;
+    public double getMaxY() {
+        return maxY;
     }
 
     public int getRayCount() {

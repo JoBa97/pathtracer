@@ -1,7 +1,6 @@
 package me.joba.pathtracercluster.pathtracer.material;
 
 import me.joba.pathtracercluster.pathtracer.Intersection;
-import me.joba.pathtracercluster.pathtracer.PTRandom;
 import me.joba.pathtracercluster.pathtracer.Ray;
 import me.joba.pathtracercluster.pathtracer.Vector3;
 
@@ -13,10 +12,18 @@ public class GlossyMaterial implements Material {
 
     private final double glossiness;
     private final Material base;
-
+    
     public GlossyMaterial(Material base, double glossiness) {
         this.base = base;
         this.glossiness = glossiness;
+    }
+
+    public double getGlossiness() {
+        return glossiness;
+    }
+
+    public Material getBase() {
+        return base;
     }
     
     @Override

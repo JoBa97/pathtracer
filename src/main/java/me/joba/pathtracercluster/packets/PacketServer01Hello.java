@@ -8,7 +8,11 @@ import java.util.UUID;
  */
 public class PacketServer01Hello {
     
-    private final UUID serverId;
+    private UUID serverId;
+    
+    public PacketServer01Hello() {
+        
+    }
     
     public PacketServer01Hello(UUID serverId) {
         this.serverId = serverId;

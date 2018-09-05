@@ -13,10 +13,18 @@ public class BlackBodyRadiator implements Radiator {
     
     
     private final double temperature, normalizationFactor;
-    
+
     public BlackBodyRadiator(double temperature, double intensity) {
         this.temperature = temperature;
         this.normalizationFactor = intensity / boltzmannDistribution((WIENS_CONSTANT / temperature) * 1.0e9, temperature);
+    }
+
+    public double getTemperature() {
+        return temperature;
+    }
+
+    public double getNormalizationFactor() {
+        return normalizationFactor;
     }
     
     @Override

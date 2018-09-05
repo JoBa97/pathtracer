@@ -14,6 +14,8 @@ public class RenderThread extends Thread {
     private final BlockingQueue<Task> taskQueue;
     private final Tracer tracer;
     private boolean running = true;
+    private int totalRayCount;
+    private RenderState state = RenderState.IDLE;
     
     public RenderThread(BlockingQueue<Task> taskQueue) {
         this.taskQueue = taskQueue;
@@ -22,6 +24,7 @@ public class RenderThread extends Thread {
     
     @Override
     public void run() {
+        System.out.println("Started " + this.getName());
         while(running) {
             try {
                 Task task = taskQueue.poll(10, TimeUnit.SECONDS);
@@ -32,12 +35,34 @@ public class RenderThread extends Thread {
     }
     
     private void runTask(Task task) {
-        tracer.render(task.getScene(), task.getRayCount());
+        state = RenderState.TRACING;
+        totalRayCount = task.getRayCount();
+        tracer.render(task.getScene(), task.getMinX(), task.getMaxX(), task.getMinY(), task.getMaxY(), task.getRayCount());
+        state = RenderState.PLOTTING;
         task.getPlotter().plot(tracer.getPhotons());
+        state = RenderState.IDLE;
         task.signalDone();
+    }
+
+    public int getTotalRayCount() {
+        return totalRayCount;
+    }
+    
+    public int getCurrentRayCount() {
+        return tracer.getCurrentRayCount();
     }
     
     public void signalEnd() {
         running = false;
+    }
+    
+    public RenderState getRenderState() {
+        return state;
+    }
+    
+    public static enum RenderState {
+        IDLE,
+        TRACING,
+        PLOTTING
     }
 }

@@ -8,13 +8,23 @@ import me.joba.pathtracercluster.pathtracer.Vector3;
  */
 public class PacketClient05TaskCompleted {
     
-    private final Vector3[] cieVector;
+    private Vector3[] cieVector;
+    private int offset;
+    
+    public PacketClient05TaskCompleted() {
+        
+    }
 
-    public PacketClient05TaskCompleted(Vector3[] cieVector) {
+    public PacketClient05TaskCompleted(Vector3[] cieVector, int offset) {
         this.cieVector = cieVector;
+        this.offset = offset;
     }
 
     public Vector3[] getCIEVector() {
         return cieVector;
+    }
+
+    public int getOffset() {
+        return offset;
     }
 }

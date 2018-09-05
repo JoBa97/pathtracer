@@ -20,6 +20,13 @@ public class Scene {
     public Scene(int width, int height) {
         this.width = width;
         this.height = height;
+        this.elements = new Element[0];
+    }
+    
+    public Scene(int width, int height, Camera camera, Element[] elements) {
+        this(width, height);
+        this.camera = camera;
+        this.elements = elements;
     }
 
     public int getWidth() {
@@ -28,6 +35,10 @@ public class Scene {
 
     public int getHeight() {
         return height;
+    }
+
+    public Element[] getElements() {
+        return elements;
     }
     
     public Optional<Entry<Element, Intersection>> intersect(Ray ray) {

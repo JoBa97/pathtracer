@@ -3,19 +3,30 @@ package me.joba.pathtracercluster.client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
+import com.esotericsoftware.kryonet.util.TcpIdleSender;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 import me.joba.pathtracercluster.NetworkRegistration;
 import me.joba.pathtracercluster.Task;
-import me.joba.pathtracercluster.client.NetworkListener.PathTracerConnection.PathTracerState;
 import me.joba.pathtracercluster.packets.*;
 import me.joba.pathtracercluster.pathtracer.PathTracer;
 import me.joba.pathtracercluster.pathtracer.Scene;
+import me.joba.pathtracercluster.pathtracer.Vector3;
 import me.joba.pathtracercluster.pathtracer.render.Plotter;
+import me.joba.pathtracercluster.pathtracer.render.ToneMapper;
 
 /**
  *
@@ -25,11 +36,17 @@ public class NetworkListener extends Listener {
     
     private final Server server;
     private final PathTracer tracer;
-    private final Map<UUID, PriorityBlockingQueue<PacketServer02SendTask>> taskPacketQueue;
-    private final Map<UUID, PriorityBlockingQueue<PacketClient05TaskCompleted>> resultPacketQueue;
+    private final Map<UUID, BlockingQueue<PacketServer02SendTask>> taskPacketQueue;
+    private final Map<UUID, BlockingQueue<PacketClient05TaskCompleted>> resultPacketQueue;
     
     public NetworkListener(int port, PathTracer tracer) throws IOException {
-        server = new Server();
+        server = new Server(16384, 16384) {
+            @Override
+            protected Connection newConnection () {
+                return new PathTracerConnection();
+            }
+        };
+        server.start();
         server.bind(port);
         NetworkRegistration.register(server);
         server.addListener(this);
@@ -38,41 +55,66 @@ public class NetworkListener extends Listener {
         this.resultPacketQueue = new ConcurrentHashMap<>();
     }
 
-    public void sendUpdate(Task task) {
-        PacketClient05TaskCompleted packet = new PacketClient05TaskCompleted(task.getPlotter().getCIEVector());        
+    public void sendCompletion(Task task) {
+        int size = 100;
+        int offset = 0;
+        List<PacketClient05TaskCompleted> taskFragments = new ArrayList<>();
+        Vector3[] cieVector = task.getPlotter().getCIEVector();
+        while(offset < cieVector.length) {
+            Vector3[] fragment = new Vector3[Math.min(size, cieVector.length - offset)];
+            System.arraycopy(cieVector, offset, fragment, 0, fragment.length);
+            taskFragments.add(new PacketClient05TaskCompleted(fragment, offset));
+            offset += fragment.length;
+        }
+        Connection connection = null;
         for(Connection con : server.getConnections()) {
             PathTracerConnection ptc = (PathTracerConnection)con;
-            if(ptc.isConnected() && ptc.serverId == task.getServerId()) { 
-                if(ptc.sendTCP(packet) > 0) {
-                    return;
-                }
-                else {
-                    break;
-                }
+            if(ptc.isConnected() && ptc.serverId == task.getServerId()) {
+                connection = con;
+                break;
             }
         }
-        PriorityBlockingQueue<PacketClient05TaskCompleted> queue = resultPacketQueue.putIfAbsent(task.getServerId(), new PriorityBlockingQueue<>());
-        queue.put(packet);
+        if(connection != null) {
+            Iterator<PacketClient05TaskCompleted> iter = taskFragments.iterator();
+            connection.addListener(new TcpIdleSender() {
+                @Override
+                protected Object next() {
+                    if(!iter.hasNext()) return null;
+                    return iter.next();
+                }
+            });
+            return;
+        }
+        BlockingQueue<PacketClient05TaskCompleted> queue = new LinkedBlockingQueue<>();
+        BlockingQueue<PacketClient05TaskCompleted> tmp = resultPacketQueue.putIfAbsent(task.getServerId(), queue);
+        if(tmp != null) {
+            queue = tmp;
+        }
+        queue.addAll(taskFragments);
+    }
+
+    public void sendInfo(int queueSize, int rayCount) {
+        server.sendToAllTCP(new PacketClient06Info(queueSize, rayCount));
     }
     
     static class PathTracerConnection extends Connection {
         
-        public PathTracerState state = PathTracerState.PRE_INIT;
         public UUID serverId;
-        
-        static enum PathTracerState {
-            PRE_INIT,
-            READY;
-        }
     }
     
     private void queuePacket(PacketServer02SendTask packet) {
-        PriorityBlockingQueue<PacketServer02SendTask> queue = taskPacketQueue.putIfAbsent(packet.getSceneId(), new PriorityBlockingQueue<>());
-        if(queue == null) {
-            queue = new PriorityBlockingQueue<>();
-            taskPacketQueue.put(packet.getSceneId(), queue);
+        BlockingQueue<PacketServer02SendTask> queue = new LinkedBlockingQueue<>();
+        BlockingQueue<PacketServer02SendTask> tmp = taskPacketQueue.putIfAbsent(packet.getSceneId(), queue);
+        if(tmp != null) {
+            queue = tmp;
         }
         queue.add(packet);
+    }
+    
+    @Override
+    public void connected(Connection c) {
+        System.out.println("Connected with " + c.getRemoteAddressTCP());
+        c.sendTCP(new PacketServer01Hello(null));
     }
     
     @Override
@@ -80,19 +122,20 @@ public class NetworkListener extends Listener {
         PathTracerConnection ptc = (PathTracerConnection)c;
         if(o instanceof PacketServer01Hello) {
             PacketServer01Hello packet = (PacketServer01Hello)o;
-            if(ptc.state != PathTracerState.PRE_INIT) {
+            if(ptc.serverId != null) {
                 c.close();
                 return;
             }
             ptc.serverId = packet.getServerId();
-            ptc.state = PathTracerState.PRE_INIT;
+            System.out.println("Received hello " + c.getRemoteAddressTCP() + ". UUID: " + ptc.serverId);
             drainResultPacketQueue(ptc.serverId, c);
         }
-        if(ptc.state == PathTracerState.PRE_INIT) {
+        if(ptc.serverId == null) {
             c.close();
             return;
         }
         if(o instanceof PacketServer02SendTask) {
+            System.out.println("Received task " + c.getRemoteAddressTCP());
             PacketServer02SendTask packet = (PacketServer02SendTask)o;
             Scene scene = tracer.getScene(packet.getSceneId());
             if(scene != null) {
@@ -102,9 +145,11 @@ public class NetworkListener extends Listener {
             }
             else {
                 queuePacket(packet);
+                c.sendTCP(new PacketClient03GetScene(packet.getSceneId()));
             }
         }
         else if(o instanceof PacketServer04SendScene) {
+            System.out.println("Received scene " + c.getRemoteAddressTCP());
             PacketServer04SendScene packet = (PacketServer04SendScene)o;
             tracer.registerScene(packet.getSceneId(), packet.getScene());
             drainTaskPacketQueue(packet.getSceneId(), ptc.serverId, packet.getScene());
@@ -112,14 +157,16 @@ public class NetworkListener extends Listener {
     }
     
     private void drainResultPacketQueue(UUID serverId, Connection connection) {
-        Queue<PacketServer02SendTask> queue = taskPacketQueue.get(serverId);
+        Queue<PacketClient05TaskCompleted> queue = resultPacketQueue.get(serverId);
         if(queue == null) return;
-        for(PacketServer02SendTask packet : queue) {
-            if(connection.sendTCP(packet) == 0) {
-                queue.add(packet);
-                break;
+        Iterator<PacketClient05TaskCompleted> iter = queue.iterator();
+        connection.addListener(new TcpIdleSender() {
+            @Override
+            protected Object next() {
+                if(!iter.hasNext()) return null;
+                return iter.next();
             }
-        }
+        });
     }
     
     private void drainTaskPacketQueue(UUID sceneId, UUID serverId, Scene scene) {
