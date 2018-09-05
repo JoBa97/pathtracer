@@ -1,8 +1,8 @@
 package me.joba.pathtracercluster;
 
-import com.esotericsoftware.kryonet.Connection;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import me.joba.pathtracercluster.packets.PacketClient05TaskCompleted;
+import me.joba.pathtracercluster.client.NetworkListener;
 import me.joba.pathtracercluster.packets.PacketServer02SendTask;
 import me.joba.pathtracercluster.pathtracer.Scene;
 import me.joba.pathtracercluster.pathtracer.render.Plotter;
@@ -19,14 +19,15 @@ public class Task implements Comparable<Task> {
     private final double minZ, maxZ;
     private final int rayCount;
     private final int priority; //Higher value <=> Higher priority
+    private final UUID serverId;
+    private final NetworkListener networkListener;
     private AtomicInteger count = new AtomicInteger(1);
-    private Connection serverId;
     
-    public Task(Scene scene, Plotter plotter, Connection owner, PacketServer02SendTask packet) {
-        this(scene, plotter, owner, packet.getMinX(), packet.getMaxX(), packet.getMinZ(), packet.getMaxZ(), packet.getRayCount(), packet.getPriority());
+    public Task(Scene scene, Plotter plotter, UUID serverId, NetworkListener networkListener, PacketServer02SendTask packet) {
+        this(scene, plotter, serverId, networkListener, packet.getMinX(), packet.getMaxX(), packet.getMinZ(), packet.getMaxZ(), packet.getRayCount(), packet.getPriority());
     }
     
-    private Task(Scene scene, Plotter plotter, UUID serverId, double minX, double maxX, double minZ, double maxZ, int rayCount, int priority) {
+    private Task(Scene scene, Plotter plotter, UUID serverId, NetworkListener networkListener, double minX, double maxX, double minZ, double maxZ, int rayCount, int priority) {
         this.scene = scene;
         this.plotter = plotter;
         this.minX = minX;
@@ -36,6 +37,7 @@ public class Task implements Comparable<Task> {
         this.rayCount = rayCount;
         this.priority = priority;
         this.serverId = serverId;
+        this.networkListener = networkListener;
     }
 
     public Scene getScene() {
@@ -71,13 +73,12 @@ public class Task implements Comparable<Task> {
     }
 
     public void signalDone() {
-        if(count.decrementAndGet() == 0 && serverId.isConnected()) {
-            PacketClient05TaskCompleted packet = new PacketClient05TaskCompleted(plotter.getCIEVector());
-            serverId.sendTCP(packet);
+        if(count.decrementAndGet() == 0) {
+            networkListener.sendUpdate(this);
         }
     }
 
-    public Connection getOwner() {
+    public UUID getServerId() {
         return serverId;
     }
     
@@ -87,10 +88,10 @@ public class Task implements Comparable<Task> {
         int raysPerShard = rayCount / shards;
         AtomicInteger count = new AtomicInteger(shards);
         for (int i = 0; i < shards - 1; i++) {
-            tasks[i] = new Task(scene, plotter, serverId, minX, maxX, minZ, maxZ, raysPerShard, priority);
+            tasks[i] = new Task(scene, plotter, serverId, networkListener, minX, maxX, minZ, maxZ, raysPerShard, priority);
             tasks[i].count = count;
         }
-        tasks[shards - 1] = new Task(scene, plotter, serverId, minX, maxX, minZ, maxZ, rayCount - raysPerShard * (shards - 1), priority);
+        tasks[shards - 1] = new Task(scene, plotter, serverId, networkListener, minX, maxX, minZ, maxZ, rayCount - raysPerShard * (shards - 1), priority);
         tasks[shards - 1].count = count;
         return tasks;
     }

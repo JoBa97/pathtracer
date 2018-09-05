@@ -9,7 +9,6 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.function.BiConsumer;
 import me.joba.pathtracercluster.NetworkRegistration;
 import me.joba.pathtracercluster.Task;
 import me.joba.pathtracercluster.client.NetworkListener.PathTracerConnection.PathTracerState;
@@ -27,6 +26,7 @@ public class NetworkListener extends Listener {
     private final Server server;
     private final PathTracer tracer;
     private final Map<UUID, PriorityBlockingQueue<PacketServer02SendTask>> taskPacketQueue;
+    private final Map<UUID, PriorityBlockingQueue<PacketClient05TaskCompleted>> resultPacketQueue;
     
     public NetworkListener(int port, PathTracer tracer) throws IOException {
         server = new Server();
@@ -35,6 +35,24 @@ public class NetworkListener extends Listener {
         server.addListener(this);
         this.tracer = tracer;
         this.taskPacketQueue = new ConcurrentHashMap<>();
+        this.resultPacketQueue = new ConcurrentHashMap<>();
+    }
+
+    public void sendUpdate(Task task) {
+        PacketClient05TaskCompleted packet = new PacketClient05TaskCompleted(task.getPlotter().getCIEVector());        
+        for(Connection con : server.getConnections()) {
+            PathTracerConnection ptc = (PathTracerConnection)con;
+            if(ptc.isConnected() && ptc.serverId == task.getServerId()) { 
+                if(ptc.sendTCP(packet) > 0) {
+                    return;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        PriorityBlockingQueue<PacketClient05TaskCompleted> queue = resultPacketQueue.putIfAbsent(task.getServerId(), new PriorityBlockingQueue<>());
+        queue.put(packet);
     }
     
     static class PathTracerConnection extends Connection {
@@ -49,7 +67,7 @@ public class NetworkListener extends Listener {
     }
     
     private void queuePacket(PacketServer02SendTask packet) {
-        PriorityBlockingQueue<PacketServer02SendTask> queue = taskPacketQueue.get(packet.getSceneId());
+        PriorityBlockingQueue<PacketServer02SendTask> queue = taskPacketQueue.putIfAbsent(packet.getSceneId(), new PriorityBlockingQueue<>());
         if(queue == null) {
             queue = new PriorityBlockingQueue<>();
             taskPacketQueue.put(packet.getSceneId(), queue);
@@ -68,6 +86,7 @@ public class NetworkListener extends Listener {
             }
             ptc.serverId = packet.getServerId();
             ptc.state = PathTracerState.PRE_INIT;
+            drainResultPacketQueue(ptc.serverId, c);
         }
         if(ptc.state == PathTracerState.PRE_INIT) {
             c.close();
@@ -78,7 +97,7 @@ public class NetworkListener extends Listener {
             Scene scene = tracer.getScene(packet.getSceneId());
             if(scene != null) {
                 Plotter plotter = new Plotter(scene.getWidth(), scene.getHeight());
-                Task task = new Task(scene, plotter, ptc.serverId, packet);
+                Task task = new Task(scene, plotter, ptc.serverId, this, packet);
                 tracer.queueTask(task);
             }
             else {
@@ -88,15 +107,27 @@ public class NetworkListener extends Listener {
         else if(o instanceof PacketServer04SendScene) {
             PacketServer04SendScene packet = (PacketServer04SendScene)o;
             tracer.registerScene(packet.getSceneId(), packet.getScene());
-            drainPacketQueue(packet.getSceneId(), ptc.serverId, packet.getScene());
+            drainTaskPacketQueue(packet.getSceneId(), ptc.serverId, packet.getScene());
         }
     }
     
-    private void drainPacketQueue(UUID sceneId, UUID serverId, Scene scene) {
+    private void drainResultPacketQueue(UUID serverId, Connection connection) {
+        Queue<PacketServer02SendTask> queue = taskPacketQueue.get(serverId);
+        if(queue == null) return;
+        for(PacketServer02SendTask packet : queue) {
+            if(connection.sendTCP(packet) == 0) {
+                queue.add(packet);
+                break;
+            }
+        }
+    }
+    
+    private void drainTaskPacketQueue(UUID sceneId, UUID serverId, Scene scene) {
         Queue<PacketServer02SendTask> queue = taskPacketQueue.get(sceneId);
+        if(queue == null) return;
         for(PacketServer02SendTask packet : queue) {
             Plotter plotter = new Plotter(scene.getWidth(), scene.getHeight());
-            Task task = new Task(scene, plotter, serverId, packet);
+            Task task = new Task(scene, plotter, serverId, this, packet);
             tracer.queueTask(task);
         }
     }

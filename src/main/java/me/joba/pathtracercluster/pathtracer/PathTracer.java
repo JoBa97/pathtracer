@@ -1,21 +1,10 @@
 package me.joba.pathtracercluster.pathtracer;
 
-import java.awt.image.BufferedImage;
-import static java.awt.image.ImageObserver.HEIGHT;
-import static java.awt.image.ImageObserver.WIDTH;
-import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.imageio.ImageIO;
 import me.joba.pathtracercluster.Task;
-import me.joba.pathtracercluster.pathtracer.render.Plotter;
-import me.joba.pathtracercluster.pathtracer.render.ToneMapper;
-import me.joba.pathtracercluster.pathtracer.render.Tracer;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -84,21 +73,21 @@ public class PathTracer {
         }
     }
     
-    public static void render(Scene scene) throws Exception {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            @Override
-            public void start() {
-                try {
-                    ToneMapper mapper = new ToneMapper(WIDTH, HEIGHT);
-                    mapper.tonemap(plotter.getCIEVector());
-                    int[] rgb = mapper.getRGB();
-                    BufferedImage bi = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
-                    bi.setRGB(0, 0, WIDTH, HEIGHT, rgb, 0, WIDTH);
-                    ImageIO.write(bi, "png", new File("rendered.png"));
-                } catch (IOException ex) {
-                    Logger.getLogger(PathTracer.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        });
-    }
+//    public static void render(Scene scene) throws Exception {
+//        Runtime.getRuntime().addShutdownHook(new Thread() {
+//            @Override
+//            public void start() {
+//                try {
+//                    ToneMapper mapper = new ToneMapper(WIDTH, HEIGHT);
+//                    mapper.tonemap(plotter.getCIEVector());
+//                    int[] rgb = mapper.getRGB();
+//                    BufferedImage bi = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+//                    bi.setRGB(0, 0, WIDTH, HEIGHT, rgb, 0, WIDTH);
+//                    ImageIO.write(bi, "png", new File("rendered.png"));
+//                } catch (IOException ex) {
+//                    Logger.getLogger(PathTracer.class.getName()).log(Level.SEVERE, null, ex);
+//                }
+//            }
+//        });
+//    }
 }
