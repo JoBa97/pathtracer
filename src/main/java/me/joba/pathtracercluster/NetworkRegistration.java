@@ -23,6 +23,7 @@ import me.joba.pathtracercluster.serializers.PlaneSerializer;
 import me.joba.pathtracercluster.serializers.QuaternionSerializer;
 import me.joba.pathtracercluster.serializers.SceneSerializer;
 import me.joba.pathtracercluster.serializers.SphereSerializer;
+import me.joba.pathtracercluster.serializers.TriangleSerializer;
 import me.joba.pathtracercluster.serializers.UUIDSerializer;
 import me.joba.pathtracercluster.serializers.Vector3Serializer;
 
@@ -62,6 +63,7 @@ public class NetworkRegistration {
                     kryo.register(BlackBodyRadiator.class, new BlackBodyRadiatorSerializer());
                 kryo.register(Surface.class);
                     kryo.register(Plane.class, new PlaneSerializer());
+                    kryo.register(Triangle.class, new TriangleSerializer());
                     kryo.register(Sphere.class, new SphereSerializer());
     }
     

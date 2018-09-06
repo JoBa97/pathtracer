@@ -1,7 +1,5 @@
 package me.joba.pathtracercluster;
 
-import com.martiansoftware.jsap.JSAPException;
-import java.io.IOException;
 import me.joba.pathtracercluster.client.ClientMain;
 import me.joba.pathtracercluster.server.ServerMain;
 

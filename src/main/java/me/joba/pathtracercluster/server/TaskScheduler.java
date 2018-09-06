@@ -1,9 +1,6 @@
 package me.joba.pathtracercluster.server;
 
-import com.esotericsoftware.kryonet.Connection;
 import java.awt.image.BufferedImage;
-import static java.awt.image.ImageObserver.HEIGHT;
-import static java.awt.image.ImageObserver.WIDTH;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,11 +29,11 @@ public class TaskScheduler {
     private final int width, height;
     private boolean active = true;
     
-    public TaskScheduler(UUID sceneId, int width, int height, int autosavePeriod) {
+    public TaskScheduler(UUID sceneId, int width, int height, Plotter plotter, int autosavePeriod) {
         this.width = width;
         this.height = height;
         this.sceneId = sceneId;
-        this.plotter = new Plotter(width, height);
+        this.plotter = plotter;
         this.toneMapper = new ToneMapper(width, height);
         this.endpoints = Collections.synchronizedList(new ArrayList<>());
         this.autosavePeriod = autosavePeriod;
@@ -82,9 +79,9 @@ public class TaskScheduler {
             synchronized(endpoints) {
                 Collections.sort(endpoints, (cd1, cd2) -> Integer.compare(cd1.getQueueSize(), cd2.getQueueSize()));
                 PacketServer02SendTask packet = new PacketServer02SendTask(sceneId);
-                packet.setRayCount(5000000);
+                packet.setRayCount(10000000);
                 for (ConnectionData data : endpoints) {
-                    if(data.getQueueSize() > 10) continue;
+                    if(data.getQueueSize() > 3) continue;
                     if(!data.getConnection().isConnected()) continue;
                     data.getConnection().sendTCP(packet);
                 }

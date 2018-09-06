@@ -41,6 +41,7 @@ import me.joba.pathtracercluster.pathtracer.material.Radiator;
 import me.joba.pathtracercluster.pathtracer.render.Plotter;
 import me.joba.pathtracercluster.pathtracer.surface.Plane;
 import me.joba.pathtracercluster.pathtracer.surface.Sphere;
+import me.joba.pathtracercluster.pathtracer.surface.Triangle;
 import me.joba.pathtracercluster.serializers.ArraySerializer;
 import me.joba.pathtracercluster.serializers.InetAddressSerializer;
 import me.joba.pathtracercluster.serializers.PlotterSerializer;
@@ -74,7 +75,7 @@ public class ServerMain {
                     new FlaggedOption("height", JSAP.INTEGER_PARSER, "512", JSAP.NOT_REQUIRED, 'h', "height", "Image height"),
                     new FlaggedOption("width", JSAP.INTEGER_PARSER, "512", JSAP.NOT_REQUIRED, 'w', "width", "Image width"),
                     new FlaggedOption("scene", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "scene", "Scene file location"),
-                    new FlaggedOption("servers", JSAP.INETADDRESS_PARSER, JSAP.NO_DEFAULT, JSAP.REQUIRED, JSAP.NO_SHORTFLAG, "servers", "Rendering servers"),
+                    new FlaggedOption("servers", JSAP.INETADDRESS_PARSER, JSAP.NO_DEFAULT, JSAP.REQUIRED, JSAP.NO_SHORTFLAG, "servers", "Rendering servers").setList(true).setListSeparator(','),
                     new FlaggedOption("autosave", JSAP.INTEGER_PARSER, "-1", JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "autosave", "Autosave period"),
                     new FlaggedOption("writeImage", JSAP.INTEGER_PARSER, "-1", JSAP.NOT_REQUIRED, JSAP.NO_SHORTFLAG, "writeImage", "Rendering period"),
                     new Switch("server", JSAP.NO_SHORTFLAG, "server", "Start Process as a master node"),
@@ -97,6 +98,15 @@ public class ServerMain {
                 Input input = new Input(new FileInputStream(file));
                 state = kryo.readObject(input, ServerState.class);
                 input.close();
+                if(config.userSpecified("autosave")) {
+                    state.autosave = config.getInt("autosave");
+                }
+                if(config.userSpecified("writeImage")) {
+                    state.writeImage = config.getInt("writeImage");
+                }
+                if(config.userSpecified("servers")) {
+                    state.servers = config.getInetAddressArray("servers");
+                }
             } catch (Exception ex) {
                 Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
                 System.err.println("Could not resume operation!");
@@ -112,8 +122,8 @@ public class ServerMain {
             state.servers = config.getInetAddressArray("servers");
             if(!config.contains("scene")) {
                 state.scene = new Scene(state.width, state.height);
-                populateScene(state.scene);
-                state.scene.setCamera(createCamera());
+                createSceneManu(state.scene);
+//                populateScene(state.scene);
             }
             else {
                 try {
@@ -140,7 +150,7 @@ public class ServerMain {
         System.out.println("Servers: " + Arrays.toString(state.servers));
         System.out.println("SceneID: " + state.sceneId);
         
-        TaskScheduler scheduler = new TaskScheduler(state.sceneId, state.width, state.height, 20000);
+        TaskScheduler scheduler = new TaskScheduler(state.sceneId, state.width, state.height, state.imageState, 20000);
         NetworkListener network = new NetworkListener(state.scene, state.serverId, state.sceneId, scheduler, state.servers);
         Lock lock = new ReentrantLock();
         Thread saveThread = new Thread(() -> {
@@ -203,6 +213,57 @@ public class ServerMain {
         );
     }
     
+    public static void createSceneManu(Scene scene) {
+        Triangle bottom1 = new Triangle(new Vector3(-10, -10, -10), new Vector3(10, -10, -10), new Vector3(-10, 10, -10));
+        Triangle bottom2 = new Triangle(new Vector3(10, 10, -10), new Vector3(10, -10, -10), new Vector3(-10, 10, -10));
+        
+        Triangle top1 = new Triangle(new Vector3(-10, -10, 10), new Vector3(10, -10, 10), new Vector3(-10, 10, 10));
+        Triangle top2 = new Triangle(new Vector3(10, 10, 10), new Vector3(10, -10, 10), new Vector3(-10, 10, 10));
+        
+        Triangle left1 = new Triangle(new Vector3(10, -10, -10), new Vector3(10, -10, 10), new Vector3(10, 10, -10));
+        Triangle left2 = new Triangle(new Vector3(10, 10, 10), new Vector3(10, -10, 10), new Vector3(10, 10, -10));
+        
+        Triangle right1 = new Triangle(new Vector3(-10, -10, -10), new Vector3(-10, -10, 10), new Vector3(-10, 10, -10));
+        Triangle right2 = new Triangle(new Vector3(-10, 10, 10), new Vector3(-10, -10, 10), new Vector3(-10, 10, -10));
+        
+        Triangle back1 = new Triangle(new Vector3(10, 10, 10), new Vector3(-10, 10, 10), new Vector3(10, 10, -10));
+        Triangle back2 = new Triangle(new Vector3(-10, 10, -10), new Vector3(-10, 10, 10), new Vector3(10, 10, -10));
+        
+        Triangle light1 = new Triangle(new Vector3(-2.5, -2.5, 9.9), new Vector3(-2.5, 2.5, 9.9), new Vector3(2.5, -2.5, 9.9));
+        Triangle light2 = new Triangle(new Vector3(2.5, 2.5, 9.9), new Vector3(-2.5, 2.5, 9.9), new Vector3(2.5, -2.5, 9.9));
+        
+        Material diffuseWhite = new DiffuseGrayMaterial(0.8);
+        Material diffuseGreen = new DiffuseColoredMaterial(0.8, 535, 35);
+        Material diffuseRed = new DiffuseColoredMaterial(0.8, 685, 65);
+        Radiator light = new BlackBodyRadiator(8000, 5);
+        
+        scene.addElement(new Element(bottom1, diffuseWhite));
+        scene.addElement(new Element(bottom2, diffuseWhite));
+//        scene.addElement(new Element(new Plane(new Vector3(0, 10, 0), new Vector3(0, 1, 0)), diffuseWhite));
+        scene.addElement(new Element(back1, diffuseWhite));
+        scene.addElement(new Element(back2, diffuseWhite));
+        scene.addElement(new Element(top1, diffuseWhite));
+        scene.addElement(new Element(top2, diffuseWhite));
+//        scene.addElement(new Element(left1, diffuseRed));
+//        scene.addElement(new Element(left2, diffuseRed));
+//        scene.addElement(new Element(right1, diffuseGreen));
+//        scene.addElement(new Element(right2, diffuseGreen));
+        scene.addElement(new Element(light1, light));
+        scene.addElement(new Element(light2, light));
+        
+        Vector3 position = new Vector3(0, -30, 0);
+        Quaternion orientation = Quaternion.rotation(0, 1, 0, 0);
+        Camera camera = new Camera(
+                position,
+                orientation,
+                Math.PI * 0.35,
+                4,
+                Double.MAX_VALUE,
+                0.01
+        );
+        scene.setCamera(camera);
+    }
+    
     public static void populateScene(Scene scene) {
         Plane top = new Plane(new Vector3(0, 0, -10), new Vector3(0, 0, 1));
         Plane bottom = new Plane(new Vector3(0, 0, 10), new Vector3(0, 0, 1));
@@ -251,5 +312,6 @@ public class ServerMain {
         Sphere diffuseOne = new Sphere(new Vector3(2, 0,-5), 2.5);
         Material cyanDiffuse = new DiffuseColoredMaterial(1, 500, 30);
         scene.addElement(new Element(diffuseOne, cyanDiffuse));
+        scene.setCamera(createCamera());
     }
 }

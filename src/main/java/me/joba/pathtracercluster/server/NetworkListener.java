@@ -29,6 +29,10 @@ public class NetworkListener extends Listener {
     private final TaskScheduler scheduler;
     
     public NetworkListener(Scene scene, UUID serverId, UUID sceneId, TaskScheduler scheduler, InetAddress[] servers) throws IOException {
+        this.scene = scene;
+        this.sceneId = sceneId;
+        this.serverId = serverId;
+        this.scheduler = scheduler;
         clients = new ConcurrentHashMap<>();
         for (int i = 0; i < servers.length; i++) {
             Client client = new Client(16384, 16384);
@@ -37,10 +41,6 @@ public class NetworkListener extends Listener {
             client.addListener(this);
             client.connect(10000, servers[i], NetworkRegistration.DEFAULT_PORT);
         }
-        this.scene = scene;
-        this.sceneId = sceneId;
-        this.serverId = serverId;
-        this.scheduler = scheduler;
     }
     
     static class PathTracerConnection extends Connection {
@@ -49,7 +49,7 @@ public class NetworkListener extends Listener {
     
     @Override
     public void connected(Connection c) {
-        System.out.println("Sending ID: " + serverId);
+        System.out.println("Connected to " + c.getRemoteAddressTCP());
         c.sendTCP(new PacketServer01Hello(serverId));
         ConnectionData cdata = new ConnectionData(c);
         clients.put(c, cdata);
