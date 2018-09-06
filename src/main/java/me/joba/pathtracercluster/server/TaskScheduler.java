@@ -57,6 +57,11 @@ public class TaskScheduler {
     
     public void start() throws InterruptedException {
         Thread autosave = new Thread(() -> {
+            try {
+                Thread.sleep(autosavePeriod);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(TaskScheduler.class.getName()).log(Level.SEVERE, null, ex);
+            }
             while(active) {
                 try {
                     Vector3[] cieVector = plotter.getCIEVector();

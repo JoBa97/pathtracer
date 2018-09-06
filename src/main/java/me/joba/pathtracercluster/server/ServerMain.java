@@ -35,6 +35,7 @@ import me.joba.pathtracercluster.pathtracer.material.BlackBodyRadiator;
 import me.joba.pathtracercluster.pathtracer.material.ColoredGlassMaterial;
 import me.joba.pathtracercluster.pathtracer.material.DiffuseColoredMaterial;
 import me.joba.pathtracercluster.pathtracer.material.DiffuseGrayMaterial;
+import me.joba.pathtracercluster.pathtracer.material.GlassMaterial;
 import me.joba.pathtracercluster.pathtracer.material.GlossyMaterial;
 import me.joba.pathtracercluster.pathtracer.material.Material;
 import me.joba.pathtracercluster.pathtracer.material.Radiator;
@@ -214,6 +215,7 @@ public class ServerMain {
     }
     
     public static void createSceneManu(Scene scene) {
+        //The room
         Triangle bottom1 = new Triangle(new Vector3(-10, -10, -10), new Vector3(10, -10, -10), new Vector3(-10, 10, -10));
         Triangle bottom2 = new Triangle(new Vector3(10, 10, -10), new Vector3(10, -10, -10), new Vector3(-10, 10, -10));
         
@@ -235,21 +237,33 @@ public class ServerMain {
         Material diffuseWhite = new DiffuseGrayMaterial(0.8);
         Material diffuseGreen = new DiffuseColoredMaterial(0.8, 535, 35);
         Material diffuseRed = new DiffuseColoredMaterial(0.8, 685, 65);
+        Material semiGlossyBlue = new GlossyMaterial(new DiffuseColoredMaterial(0.8, 475, 20), 0.2);
         Radiator light = new BlackBodyRadiator(8000, 5);
         
         scene.addElement(new Element(bottom1, diffuseWhite));
         scene.addElement(new Element(bottom2, diffuseWhite));
-//        scene.addElement(new Element(new Plane(new Vector3(0, 10, 0), new Vector3(0, 1, 0)), diffuseWhite));
         scene.addElement(new Element(back1, diffuseWhite));
         scene.addElement(new Element(back2, diffuseWhite));
         scene.addElement(new Element(top1, diffuseWhite));
         scene.addElement(new Element(top2, diffuseWhite));
-//        scene.addElement(new Element(left1, diffuseRed));
-//        scene.addElement(new Element(left2, diffuseRed));
-//        scene.addElement(new Element(right1, diffuseGreen));
-//        scene.addElement(new Element(right2, diffuseGreen));
+        scene.addElement(new Element(left1, diffuseRed));
+        scene.addElement(new Element(left2, diffuseRed));
+        scene.addElement(new Element(right1, diffuseGreen));
+        scene.addElement(new Element(right2, diffuseGreen));
         scene.addElement(new Element(light1, light));
         scene.addElement(new Element(light2, light));
+        
+        //The objects
+        Sphere ball1 = new Sphere(new Vector3(0, -2, -8), 2);
+        Sphere ball2 = new Sphere(new Vector3(-3, 3, -8), 2);
+        Sphere ball3 = new Sphere(new Vector3(3, 3, -8), 2);
+        
+        Material glass = new GlassMaterial();
+        Material mirror = new GlossyMaterial(new DiffuseGrayMaterial(1), 0);
+        
+        scene.addElement(new Element(ball1, glass));
+        scene.addElement(new Element(ball2, mirror));
+        scene.addElement(new Element(ball3, semiGlossyBlue));
         
         Vector3 position = new Vector3(0, -30, 0);
         Quaternion orientation = Quaternion.rotation(0, 1, 0, 0);

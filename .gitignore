@@ -11,3 +11,6 @@ nbactions.xml
 /nbproject/
 /build/
 /dist/
+pathtracer.continue
+pathtracer.continue.tmp
+renderer.png

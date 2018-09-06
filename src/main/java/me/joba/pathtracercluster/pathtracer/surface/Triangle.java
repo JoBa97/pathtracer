@@ -16,13 +16,14 @@ import me.joba.pathtracercluster.pathtracer.Vector3;
  */
 public class Triangle implements Surface {
     
-    private final Vector3 p0, p1, p2, normal;
+    private final Vector3 p0, p1, p2, normal, reverseNormal;
     
     public Triangle(Vector3 p0, Vector3 p1, Vector3 p2) {
         this.p0 = p0;
         this.p1 = p1;
         this.p2 = p2;
-        this.normal = p1.subtract(p0).cross(p2.subtract(p0));
+        this.normal = p1.subtract(p0).cross(p2.subtract(p0)).normalize();
+        this.reverseNormal = normal.scale(-1);
     }
 
     public Vector3 getP0() {
@@ -60,10 +61,10 @@ public class Triangle implements Surface {
         }
         double t = f * edge2.dot(q);
         if(t > epsilon) {
-            return Optional.of(new Intersection(ray.getPosition().add(ray.getDirection().scale(t)), normal, new Vector3(0, 0, 0), t));
+            return Optional.of(new Intersection(ray.getPosition().add(ray.getDirection().scale(t)), a > 0 ? normal : reverseNormal, new Vector3(0, 0, 0), t));
         }
         else {
             return Optional.empty();
         }
-    }
+    }    
 }

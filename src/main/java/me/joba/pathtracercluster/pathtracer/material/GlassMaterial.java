@@ -48,6 +48,12 @@ public class GlassMaterial implements Material {
         }
     }
     
+//    public static void main(String[] args) {
+//        GlassMaterial gm = new GlassMaterial();
+//        double ior = gm.getRefractionIndex(500);
+//        System.out.println(gm.getFresnel(new Vector3(0, 0, 1), new Vector3(0, 1, 0), ior));
+//    }
+    
     @Override
     public Ray getNextRay(Ray incoming, Intersection intersection) {
         double cosi = -incoming.getDirection().dot(intersection.getNormal());
@@ -56,6 +62,10 @@ public class GlassMaterial implements Material {
         double path = PTRandom.getUnit();
         Vector3 direction;
         if(path < fresnel) {
+            direction = incoming.getDirection().reflect(intersection.getNormal());
+            
+        }
+        else {
             Vector3 normal = intersection.getNormal();
             if(cosi > 0) {
                 ior = 1.0 / ior;
@@ -71,9 +81,6 @@ public class GlassMaterial implements Material {
             else {
                 direction = incoming.getDirection().scale(ior).add(normal.scale(ior * cosi - Math.sqrt(1.0 - sinTsqr)));
             }
-        }
-        else {
-            direction = incoming.getDirection().reflect(intersection.getNormal());
         }
         return new Ray(intersection.getPosition(), direction, incoming.getWavelength());
     }

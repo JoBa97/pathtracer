@@ -14,7 +14,7 @@ public class Plane implements Surface{
     private final Vector3 normal, offset;
     
     public Plane(Vector3 offset, Vector3 normal) {
-        this.normal = normal;
+        this.normal = normal.normalize();
         this.offset = offset;
     }
 
@@ -43,5 +43,14 @@ public class Plane implements Surface{
             normal = normal.scale(-1);
         }
         return Optional.of(new Intersection(pos, normal, new Vector3(0, 0, 0), t));
+    }
+    
+    public static void main(String[] args) {
+        Plane plane = new Plane(new Vector3(0, 0, 0), new Vector3(0, 0, 1));
+        Ray ray;
+        ray = new Ray(new Vector3(0, 0, -1), new Vector3(0, 0, 1), 0);
+        plane.intersect(ray).ifPresent(i -> System.out.println(i.getNormal()));
+        ray = new Ray(new Vector3(0, 0, 1), new Vector3(0, 0, -1), 0);
+        plane.intersect(ray).ifPresent(i -> System.out.println(i.getNormal()));
     }
 }
